@@ -427,7 +427,8 @@ stepRecordC  (Case v@(Var _)
   dpfs <- sequence $ desugar <$> pfs
   return {- -} $ 
     (Case v 
-     ((Alt s1 (PRec n []) (GuardedAlts [GuardedAlt s1 ((toStmt x) <$> dpfs) e] ) 
+     ((Alt s1 (PAsPat (Ident x) (PRec n [])) 
+       (GuardedAlts [GuardedAlt s1 ((toStmt x) <$> dpfs) e] ) 
        (BDecls [])) 
       :(Alt s2  PWildCard   (UnGuardedAlt e') 
         (BDecls []))
