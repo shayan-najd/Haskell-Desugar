@@ -1,49 +1,41 @@
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Language.Haskell.Exts.Desugar.Record where
 
 import qualified Prelude 
-import Prelude              (Integer,Enum(..),Eq(..))
+import Prelude              (Integer,Enum(..),Eq(..),otherwise)
 
-import Text.Show            (Show(..))
-
-import Language.Haskell.Exts
+import Language.Haskell.Exts hiding(name)
 import Language.Haskell.Exts.SrcLoc(noLoc)
 import Language.Haskell.Exts.Unique
-import Language.Haskell.Exts.Desugar
 import Language.Haskell.Exts.Desugar.Basic
  
-import Control.Monad        (mapM,sequence,Monad(..),(=<<))
+import Control.Monad        (sequence,Monad(..))
 
-import Control.Applicative  ((<$>),(<*>))
+import Control.Applicative  ((<$>))
 
-import Data.Foldable        (foldl,foldr,foldl1,all,any)
-import Data.Function        (($),(.),flip)
-import Data.Tuple           (fst)
+import Data.Foldable        (foldl)
+import Data.Function        (($))
 import Data.Int             (Int)
-import Data.Bool            (Bool(..),not,(&&))
-import Data.String          (String(..))
+import Data.String          (String)
 import Data.Maybe           (Maybe(..))
-import Data.Either          (Either(..))
-import Data.List            ((++),(\\),elem,notElem,length,partition,filter
-                            ,lookup,union,concat,zip,null,nub)
-
-import Debug.Trace          (trace)
+import Data.List            ((++),notElem,length,concat,nub)
 
 
 -- Generates the following functions for each data declaration 
 -- 1.Getter 2.Setter 3.Is 4.New  
 generateRecordFuns :: Decl -> Unique [Decl]   
 generateRecordFuns (DataDecl _ _ [] 
-                    n _ qualConDecls _) = 
+                    _ _ qualConDecls _) = 
   let
     -- collect 1.name of the constructor 2.labels 3.arity
     cons = [case cDecl of
             ConDecl name ts         -> (name,[],length ts)
-            InfixConDecl t1 name t2 -> (name,[],2)
+            InfixConDecl _ name _ -> (name,[],2)
             RecDecl name nts        -> 
               let nns = [n|(ns,_) <- nts,n <- ns]
               in (name,nns,length nns)
            |QualConDecl _ _ _ cDecl <- qualConDecls]	  
-    ls = nub [ l | (_,ls,_) <- cons , l<-ls]     
+    ls = nub [ l | (_,lcs,_) <- cons , l<-lcs]     
     cs = [ (c,ar) | (c,_,ar) <- cons]     
   in 
    do
@@ -52,6 +44,7 @@ generateRecordFuns (DataDecl _ _ []
      dis  <- sequence [genIs  c ar   | (c,ar) <- cs]  
      dns  <- sequence [genNew c ar   | (c,ar) <- cs]  
      return $ dgs++dss++dis++dns
+generateRecordFuns _ = error "absurd use!"   
 
 -- Generates a getter function for the given label, e.g.,
 -- having "data X = X1 {l1:: Int,l2::String} | X2 {l1::Int}" it generates: 
@@ -61,13 +54,11 @@ generateRecordFuns (DataDecl _ _ []
 -- > ; _  -> error ...}     
 genGet :: Name -> [(Name,[Name],Int)] -> Unique Decl
 genGet l cons = do
-  e <- newVar
   r <- newVar
-  (UnQual n') <- addPrefixToQName setPrefix (UnQual l)
   alts' <-sequence $ genGet_ l <$> cons 
   let alts = concat alts'
   return $ 
-    PatBind noLoc (PVar n') Nothing 
+    PatBind noLoc (PVar l) Nothing 
     (UnGuardedRhs 
      (Lambda noLoc [PVar $ Ident r] 
       (Case (Var $ UnQual $ Ident r)
@@ -78,11 +69,11 @@ genGet l cons = do
           (App (Var (UnQual (Ident "error"))) (Lit (String "Label is not defined!"))))
          (BDecls [])]))))
     (BDecls [])
- where
-   genGet_ :: Name -> (Name,[Name],Int) -> Unique [Alt]
-   genGet_ l (c,ns,_)
+  
+genGet_ :: Name -> (Name,[Name],Int) -> Unique [Alt]
+genGet_ l (c,ns,_)
      | l `notElem` ns = return []
-     | l `elem`    ns = do
+     | otherwise      = do
        x <- newVar
        let vs  =
              [if (l == n) 
@@ -93,12 +84,13 @@ genGet l cons = do
          [Alt noLoc 
           (PApp (UnQual c) 
            [case v of  
-               Just x  -> PVar $ Ident x 
+               Just x0  -> PVar $ Ident x0 
                Nothing -> PWildCard
            | v <- vs]) 
           (UnGuardedAlt 
            (Var $ UnQual $ Ident x)) 
           (BDecls [])]
+       
          
 -- Generates a setter function for the given label, e.g.,
 -- having "data X = X1 {l1:: Int,l2::String} | X2 {l1::Int}" it generates: 
@@ -127,11 +119,11 @@ genSet l cons = do
               (Lit (String "Label is not defined! "))))
             (BDecls [])])))))
     (BDecls [])
- where
-   genSet_ :: Name -> String -> (Name,[Name],Int) -> Unique [Alt]
-   genSet_ l e (c,ns,_)
+ 
+genSet_ :: Name -> String -> (Name,[Name],Int) -> Unique [Alt]
+genSet_ l e (c,ns,_)
      | l `notElem` ns = return []
-     | l `elem`    ns = do
+     | otherwise      = do
      vs <- sequence [if (l == n) 
                      then return Nothing 
                      else (Just <$> newVar) 

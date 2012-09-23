@@ -1,9 +1,10 @@
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Language.Haskell.Exts.Desugar.Basic where
 
 import qualified Prelude
 import Language.Haskell.Exts
 import Language.Haskell.Exts.Unique
-import Language.Haskell.Exts.Desugar
+import Language.Haskell.Exts.Desugar (Desugar(..))
 import Prelude (return,Integer,mapM,Bool(..),(++),($),String)
 
 
@@ -33,12 +34,15 @@ instance Desugar a =>
   desugar = mapM desugar
   
   
+isPVar :: Pat -> Bool
 isPVar (PVar _ ) = True
 isPVar _         = False
  
+isVar :: Exp -> Bool                   
 isVar (Var _ )  = True
 isVar _         = False
 
+isUnit :: Exp -> Bool
 isUnit (Con (Special UnitCon)) = True
 isUnit _                       = False 
 

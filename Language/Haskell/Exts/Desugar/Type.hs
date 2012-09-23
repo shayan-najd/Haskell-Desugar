@@ -1,20 +1,24 @@
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Language.Haskell.Exts.Desugar.Type where
 
 import qualified Prelude
 import Language.Haskell.Exts
 import Language.Haskell.Exts.Unique
 import Language.Haskell.Exts.Desugar
-import Language.Haskell.Exts.Desugar.Basic
+import Language.Haskell.Exts.Desugar.Basic ()
 
 import Control.Applicative  ((<$>),(<*>))
 
-import Data.Foldable        (foldl,foldr,foldl1,all,any)
-import Data.Function        (($),(.),flip)
+import Data.Foldable        (foldl)
+import Data.Function        (($))
 import Data.List            ((\\),length,union)
 import Data.Maybe           (Maybe(..))
 import Control.Monad        (return)
 
 instance Desugar Kind    where  
+  -- No desugaring
+  desugar KindStar             = 
+    return KindStar    
   -- No desugaring
   desugar KindBang             = 
     return KindBang    
@@ -39,7 +43,7 @@ instance Desugar Asst    where
   desugar (InfixA t1 qName t2) = 
     desugar $ ClassA qName [t1,t2]  
   -- Not supported
-  desugar (IParam iPName t)    =
+  desugar (IParam _ _)         =
     error "Not supported!"
     
 instance Desugar TyVarBind where
@@ -76,7 +80,8 @@ instance Desugar Type where
       $ TyForall 
       (Just $ UnkindedVar <$> (tyvars t \\ tys)) 
       [] t
-  
+
+desugarT :: Type -> Unique Type  
 desugarT (TyApp t1 t2)      = 
     TyApp <$> desugarT t1 <*> desugarT t2
 desugarT (TyCon qName)      =  
@@ -95,6 +100,8 @@ desugarT (TyInfix t1 qn t2) =
     desugarT $ TyApp (TyApp (TyCon qn) t1) t2  
 desugarT ( TyParen t )      = 
     desugarT t      
+desugarT (TyForall {})      =    
+    error "Not supported!"
     
 tyvars :: Type -> [Name]
 --tyvars (TyForall Nothing ctx t) = tyvars t --ambiguous types are not supported

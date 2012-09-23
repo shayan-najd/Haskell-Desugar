@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wall #-}
 module Language.Haskell.Exts.Desugar  where
 
 import qualified Prelude

@@ -1,3 +1,14 @@
+-----------------------------------------------------------------------------
+-- |
+-- Module      :  Language.Haskell.Exts.Desugaring
+-- Copyright   :  (c) Shayan Najd
+-- License     :  BSD-style (see the file LICENSE.txt)
+--
+-- Maintainer  :  Shayan Najd, shayan@chalmers.se
+-- Stability   :  experimental
+-- Portability :  portable
+-----------------------------------------------------------------------------
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Language.Haskell.Exts.Desugaring 
        (module Language.Haskell.Exts.Unique
        ,module Language.Haskell.Exts.Desugar

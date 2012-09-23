@@ -1,14 +1,5 @@
------------------------------------------------------------------------------
--- |
--- Module      :  Language.Haskell.Exts.Desugaring
--- Copyright   :  (c) Shayan Najd
--- License     :  BSD-style (see the file LICENSE.txt)
---
--- Maintainer  :  Shayan Najd, shayan@chalmers.se
--- Stability   :  experimental
--- Portability :  portable
------------------------------------------------------------------------------
 {-# LANGUAGE FlexibleInstances #-} 
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 
 --NOT Supported: 
 -- Arrows, Implicit Parameters, Template Haskell, Scoped Type Variables
@@ -20,69 +11,58 @@ module Language.Haskell.Exts.Desugar.Declaration where
 import qualified Prelude 
 import Prelude              (Integer,Enum(..),Eq(..))
 
-import Text.Show            (Show(..))
-
-import Language.Haskell.Exts
+import Language.Haskell.Exts hiding (name)
 import Language.Haskell.Exts.SrcLoc(noLoc)
 import Language.Haskell.Exts.Unique
 import Language.Haskell.Exts.Desugar
 import Language.Haskell.Exts.Desugar.Basic
-import Language.Haskell.Exts.Desugar.Type
-import Language.Haskell.Exts.Desugar.Pattern
-import Language.Haskell.Exts.Desugar.Case
-import Language.Haskell.Exts.Desugar.Conversion
-import Language.Haskell.Exts.Desugar.Expression
-import Language.Haskell.Exts.Desugar.Record
-import Control.Monad        (mapM,sequence,Monad(..),(=<<))
+import Language.Haskell.Exts.Desugar.Type ()
+import Language.Haskell.Exts.Desugar.Pattern 
+import Language.Haskell.Exts.Desugar.Conversion 
+import Language.Haskell.Exts.Desugar.Expression ()
+import Language.Haskell.Exts.Desugar.Record 
+import Control.Monad        (mapM,sequence,Monad(..))
 
 import Control.Applicative  ((<$>),(<*>))
 
-import Data.Foldable        (foldl,foldr,foldl1,all,any)
-import Data.Function        (($),(.),flip)
-import Data.Tuple           (fst)
-import Data.Int             (Int)
-import Data.Bool            (Bool(..),not,(&&))
-import Data.String          (String(..))
+import Data.Function        (($),(.))
 import Data.Maybe           (Maybe(..))
-import Data.Either          (Either(..))
-import Data.List            ((++),(\\),elem,notElem,length,partition,filter
-                            ,lookup,union,concat,zip,null,nub)
-
-import Debug.Trace          (trace)
+import Data.List            ((++),notElem,length,partition
+                            ,lookup,concat)
 
 instance Desugar Decl where
-  desugar d@(TypeDecl src name tvs t ) =  do
+  desugar (TypeDecl src name tvs t ) =  do
     push $ (\(UnkindedVar x)->x) <$> tvs
     d <- TypeDecl $$ src ** name ** tvs ** t
-    pop
+    _<-pop
     return d
     
-  desugar d@(DataDecl src db ctx name tvs  qcds drs) = do
+  desugar (DataDecl src db ctx name tvs  qcds drs) = do
     push $ (\(UnkindedVar x)->x) <$> tvs
     d <- DataDecl $$ src ** db ** ctx ** name  ** tvs **  qcds ** drs
-    pop
+    _<-pop
     return d
     
-  desugar d@(DerivDecl src ctx qName ts) =  
+  desugar (DerivDecl src ctx qName ts) =  
     DerivDecl $$ src ** ctx ** qName ** ts
   
-  desugar d@(ClassDecl src ctx name tvs fundeps classDecls) = do
+  desugar (ClassDecl src ctx name tvs fundeps classDecls) = do
     push $ (\(UnkindedVar x)->x) <$> tvs
     cd' <- desugarDecls ((\(ClsDecl d)-> d) <$> classDecls)
-    pop
+    _<-pop
     ClassDecl $$ src ** ctx ** name ** tvs <*> return fundeps 
       <*> return (ClsDecl <$> cd')
     
-  desugar d@(InstDecl src ctx qName ts instDecls) = do 
+  desugar (InstDecl src ctx qName ts instDecls) = do 
     id' <- desugarDecls ((\ (InsDecl d) -> d) <$> instDecls)
     InstDecl $$ src ** ctx ** qName <*> return ts 
       <*> return (InsDecl <$> id')
       
-  desugar d@(PatBind src (PVar (Ident n)) (Just ty) 
+  desugar (PatBind src (PVar (Ident n)) (Just ty) 
              (UnGuardedRhs exp) (BDecls []))  
    = do
      -- having typevariables in the state desugar the type signature
-     t@(TyForall (Just ttys) _ _)   <- desugar ty
+     t@(TyForall (Just _) _ _)   <- desugar ty
      -- reset the state and store the old state
      tys <- pop 
      -- push ttys -- for scoped type variables
@@ -159,7 +139,7 @@ desugarDecls decls =  do
   
 desugarPatFunBind :: Decl -> Unique [Decl]
 -- 4.4.3.1
-desugarPatFunBind f@(FunBind ms@((Match _ n ps _ _ _ ):_)) =  do
+desugarPatFunBind (FunBind ms@((Match _ n ps _ _ _ ):_)) =  do
   names <- sequence [ Ident <$> newVar 
                     | _  <- [1..length ps]]
   concat <$> mapM desugarPatFunBind   
@@ -186,12 +166,12 @@ desugarPatFunBind (PatBind src p m (GuardedRhss  grhss) bnds) =
   (BDecls [])]        
 
 -- Final State
-desugarPatFunBind e@(PatBind src (PVar (Ident n)) m 
-                     (UnGuardedRhs exp) (BDecls [])) = 
+desugarPatFunBind e@(PatBind _ (PVar (Ident _)) _ 
+                     (UnGuardedRhs _) (BDecls [])) = 
     return  [e]
 
 -- THIH 11.6.3 
-desugarPatFunBind (PatBind src p mt (UnGuardedRhs exp) (BDecls [])) = do
+desugarPatFunBind (PatBind _ p mt (UnGuardedRhs exp) (BDecls [])) = do
   seed <- newVar
   concat <$> mapM desugarPatFunBind   
     ((PatBind noLoc (PVar $ Ident $ seed) mt (UnGuardedRhs exp) (BDecls []))
@@ -203,7 +183,8 @@ desugarPatFunBind (PatBind src p mt (UnGuardedRhs exp) (BDecls [])) = do
            [Alt noLoc p (UnGuardedAlt (Var (UnQual v))) 
             (BDecls [])]) ) (BDecls []))) <$> (patVar p) 
      ))
-    
+desugarPatFunBind _ =     
+  error "Absurd use of desugarPatFunBind"
 
 instance Desugar Module where
   desugar (Module src n os mw me i ds) =  
@@ -237,7 +218,7 @@ instance Desugar ConDecl where
     ConDecl n [ bt | (ns,bt) <- rs, _ <- ns]
  
 instance (Desugar a,Desugar b) => Desugar (a, b) where --deriving
-  desugar (qName, ts) = do 
+  desugar (qName, tys) = do 
     q <- desugar qName
-    ts <- desugar ts  
+    ts <- desugar tys  
     return (q , ts)

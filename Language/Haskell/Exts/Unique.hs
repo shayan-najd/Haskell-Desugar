@@ -1,7 +1,8 @@
+{-# OPTIONS_GHC -Wall #-}
 module Language.Haskell.Exts.Unique  where
 
 import Control.Monad.Trans  (lift)
-import Control.Monad.State  (put,get,evalState,State(..))
+import Control.Monad.State  (put,get,evalState,State)
 import Control.Monad.Reader (ask,ReaderT(..))
 import Control.Monad.Error  (throwError,ErrorT(..))
 

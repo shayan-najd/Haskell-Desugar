@@ -1,41 +1,19 @@
+{-# OPTIONS_GHC -Wall #-}
 module Language.Haskell.Exts.Desugar.Conversion where
 
 import qualified Prelude 
 import Prelude              (Integer,Enum(..))
-
-import Text.Show            (Show(..))
-
+ 
 import Language.Haskell.Exts
 import Language.Haskell.Exts.SrcLoc(noLoc)
-import Language.Haskell.Exts.Unique
-import Language.Haskell.Exts.Desugar
-import Language.Haskell.Exts.Desugar.Basic
-import Language.Haskell.Exts.Desugar.Type
-import Language.Haskell.Exts.Desugar.Pattern
-import Language.Haskell.Exts.Desugar.Case
-import Control.Monad        (mapM,sequence,Monad(..),(=<<))
-
-import Control.Applicative  ((<$>),(<*>))
-
-import Data.Foldable        (foldl,foldr,foldl1,all,any)
-import Data.Function        (($),(.),flip)
-import Data.Tuple           (fst)
-import Data.Int             (Int)
-import Data.Bool            (Bool(..),not,(&&))
-import Data.String          (String(..))
-import Data.Maybe           (Maybe(..))
-import Data.Either          (Either(..))
-import Data.List            ((++),(\\),notElem,length,partition,filter
-                            ,lookup,union,concat,zip,null)
-
-import Debug.Trace          (trace)
+import Control.Applicative  ((<$>))
 
 cMatchs :: [Match] -> [Alt]
 cMatchs ms  = cMatch <$> ms 
 
 cMatch :: Match -> Alt
-cMatch (Match _ _ ps _ rhs binds) = 
-  Alt noLoc (PTuple ps) (cRhs rhs) binds 
+cMatch (Match _ _ ps _ rhs bs) = 
+  Alt noLoc (PTuple ps) (cRhs rhs) bs 
 
 cRhs :: Rhs -> GuardedAlts  
 cRhs (UnGuardedRhs exp) = 
@@ -51,6 +29,7 @@ cGuardedRhs (GuardedRhs _ stmts exp) =
 desugarLambda2Alt :: Exp -> Alt
 desugarLambda2Alt (Lambda _ [p] body) = 
   Alt noLoc p (UnGuardedAlt body) (BDecls [])
+desugarLambda2Alt _ = Prelude.error "not lambda"  
 
 
 
@@ -73,7 +52,7 @@ cQualStmt (QualStmt g@(Generator _ _ _)) =
       g  
 cQualStmt (QualStmt l@(LetStmt _))       = 
       l 
-  
+cQualStmt _ = Prelude.error "not implemented completely"
 
 {-           
 demoteQualConDecl :: Name -> [Name]-> QualConDecl -> Exp

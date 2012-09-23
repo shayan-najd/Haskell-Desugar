@@ -1,36 +1,32 @@
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Language.Haskell.Exts.Desugar.Expression where
 
 import qualified Prelude 
 import Prelude              (Integer,Enum(..))
 
-import Text.Show            (Show(..))
+--import Text.Show            (Show(..))
 
-import Language.Haskell.Exts
+import Language.Haskell.Exts hiding (binds,name)
 import Language.Haskell.Exts.SrcLoc(noLoc)
 import Language.Haskell.Exts.Unique
 import Language.Haskell.Exts.Desugar
 import Language.Haskell.Exts.Desugar.Basic
-import Language.Haskell.Exts.Desugar.Type
-import Language.Haskell.Exts.Desugar.Pattern
+--import Language.Haskell.Exts.Desugar.Type
+--import Language.Haskell.Exts.Desugar.Pattern
 import Language.Haskell.Exts.Desugar.Case
 import Language.Haskell.Exts.Desugar.Conversion
-import {-# SOURCE #-} Language.Haskell.Exts.Desugar.Declaration
+import {-# SOURCE #-} Language.Haskell.Exts.Desugar.Declaration ()
 import Control.Monad        (mapM,sequence,Monad(..),(=<<))
 
 import Control.Applicative  ((<$>),(<*>))
 
-import Data.Foldable        (foldl,foldr,foldl1,all,any)
+import Data.Foldable        (foldl,foldr,all,any)
 import Data.Function        (($),(.),flip)
-import Data.Tuple           (fst)
-import Data.Int             (Int)
-import Data.Bool            (Bool(..),not,(&&))
-import Data.String          (String(..))
+import Data.Bool            (Bool(..),not)
+--import Data.String          (String(..))
 import Data.Maybe           (Maybe(..))
 import Data.Either          (Either(..))
-import Data.List            ((++),(\\),notElem,length,partition,filter
-                            ,lookup,union,concat,zip,null)
-
-import Debug.Trace          (trace)
+import Data.List            ((++),length)
 
 
 instance Desugar Exp where  
@@ -58,7 +54,7 @@ instance Desugar Exp where
   
   -- 3.3   
   -- HSE
-  desugar (Lambda src [] body) = 
+  desugar (Lambda _ [] _) = 
     error "No header for the lambda expression!"
   desugar (Lambda src [p] body) 
     | not $ isPVar p = do
@@ -177,8 +173,8 @@ instance Desugar Exp where
    --------------------------
       {(Con (Special UnitCon)) -> 
           case alts of    
-            {((Alt src p galt decls) 
-              :(Alt _ PWildCard (UnGuardedAlt e') (BDecls []))
+            {((Alt _ p galt _) 
+              :(Alt _ PWildCard (UnGuardedAlt _) (BDecls []))
               :[]) -> case galt of
                 {(UnGuardedAlt _ ) -> desugar =<< stepA c
                 ;(GuardedAlts gss) -> case p of
@@ -193,14 +189,14 @@ instance Desugar Exp where
                       ; _ -> desugar =<< stepA c }
                   ; _ -> desugar =<< stepA c }}
             ; _ -> desugar =<< stepA c }
-      ; (Var v) -> case alts of
+      ; (Var _) -> case alts of
             { [] -> error "Wrong HSE Tree!"
             ;((Alt _ _ _ _)
               :[]) -> desugar =<< stepJ' c
             ;((Alt _ p galt decls) 
-              :(Alt _ PWildCard (UnGuardedAlt e') (BDecls []))
+              :(Alt _ PWildCard (UnGuardedAlt _) (BDecls []))
               :[]) -> case galt of
-              {(UnGuardedAlt e) -> case decls of
+              {(UnGuardedAlt _) -> case decls of
                   {BDecls [] -> case p of
                       {PVar    _       -> desugar =<< stepIJ     c
                       ;PIrrPat _       -> desugar =<< stepD      c
@@ -216,7 +212,7 @@ instance Desugar Exp where
                        | True          -> desugar =<< stepG      c
                       ;_ -> error "Not Supported in case!"}
                   ; _        -> desugar =<< stepBinding c} 
-              ;(GuardedAlts galts) -> desugar =<< stepC c}
+              ;(GuardedAlts _) -> desugar =<< stepC c}
             ; _ -> desugar =<< stepB c}
       ; _ -> desugar =<< stepA c}
    
@@ -247,7 +243,9 @@ instance Desugar Exp where
        (QVarOp (UnQual (Symbol ">>="))) 
        (Var (UnQual (Ident ok))))
   desugar (Do ((LetStmt bs):ss)) =   
-    desugar $ Let bs (Do ss)   
+    desugar $ Let bs (Do ss)
+  desugar (Do ((RecStmt _) : (_ : _))) =
+    error "not supported yet!" --ToDo
  
   -- not 3.15.2
   desugar (RecConstr qName fieldUpdates) = do
@@ -267,7 +265,7 @@ instance Desugar Exp where
     desugar $ foldl (flip App) eexp es
    
   -- 3.16
-  desugar (ExpTypeSig srcLoc e t) = do
+  desugar (ExpTypeSig _ e t) = do
     v <- newVar 
     desugar $ 
      Let (BDecls [TypeSig noLoc [Ident v] t
@@ -288,8 +286,10 @@ instance Desugar Exp where
                |x <- eExps])
  
   -- Not Supported 
+  desugar (ParComp {}) =  error "Not supported!"
+ {- 
   desugar (ParComp  eexp qualStmtss) =  error "Not supported!"
- {- let comps = [ ListComp 
+  let comps = [ ListComp 
                 (Tuple [patToExp p| (Generator _ p _ ) <- qualStmts ]) 
                 qualStmts 
               |  qualStmts <- qualStmtss
@@ -337,6 +337,7 @@ stepFinal (Case v@(Var _)
       <*> return (BDecls [])
      ,Alt $$ s2 ** PWildCard <*> (UnGuardedAlt $$ e') 
       <*> return (BDecls [])]  
+stepFinal _ = error "not in the final state!"     
      
 instance Desugar FieldUpdate where
   desugar (FieldUpdate qn e) = 

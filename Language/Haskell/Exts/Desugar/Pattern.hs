@@ -1,10 +1,11 @@
+{-# OPTIONS_GHC -Wall -fno-warn-orphans #-}
 module Language.Haskell.Exts.Desugar.Pattern where
 
 import qualified Prelude
-import Language.Haskell.Exts
+import Language.Haskell.Exts hiding (name)
 import Language.Haskell.Exts.Unique
 import Language.Haskell.Exts.Desugar
-import Language.Haskell.Exts.Desugar.Basic
+import Language.Haskell.Exts.Desugar.Basic ()
 import Prelude (($),(++),return,length,foldr,concat)
 import Control.Applicative ((<$>))
 
@@ -83,18 +84,15 @@ instance Desugar Pat where
     desugar $ foldr (\p a -> PApp (Special Cons) [p,a]) (PList [])  pats
     
   -- not supported
-  desugar (PatTypeSig x pat ttype) = error "Not supported!"                  
-  desugar (PExplTypeArg qName t)   = error "Not supported!"       
-  desugar (PQuasiQuote s1 s2)      = error "Not supported!"
-  desugar (PRPat rPats )           = error "Not supported!"                  
-  desugar (PXTag srcLoc xName 
-           pXAttrs mPat pats )     = error "Not supported!" 
-  desugar (PXETag srcLoc xName 
-           pXAttrs mPat)           = error "Not supported!" 
-  desugar (PXPcdata string)        = error "Not supported!"               
-  desugar (PXPatTag pat)           = error "Not supported!"                  
-  desugar (PXRPats rPats)          = error "Not supported!" 
-  
+  desugar (PatTypeSig   {}) = error "Not supported!"                  
+  desugar (PExplTypeArg {}) = error "Not supported!"       
+  desugar (PQuasiQuote  {}) = error "Not supported!"
+  desugar (PRPat        {}) = error "Not supported!"                  
+  desugar (PXTag        {}) = error "Not supported!" 
+  desugar (PXETag       {}) = error "Not supported!" 
+  desugar (PXPcdata     {}) = error "Not supported!"               
+  desugar (PXPatTag     {}) = error "Not supported!"                  
+  desugar (PXRPats      {}) = error "Not supported!" 
   
 instance Desugar PatField where
   desugar (PFieldPat qName p) = 
@@ -103,7 +101,6 @@ instance Desugar PatField where
     desugar $ PFieldPat (UnQual n) (PVar n)
   desugar PFieldWildcard      =  
     error "PFieldWildcard is not supported!"
-    
 
 -- variables / name bound in a pattern
 patVar :: Pat -> [Name]      
