@@ -360,14 +360,10 @@ stepV _ = error "Case expression is not in state V!"
 -- HSE 
 -- it adds the default alt  
 stepJ' :: Exp -> Unique Exp    
-stepJ' (Case v@(Var _) (  
-           (Alt s1 p (UnGuardedAlt e ) 
-            (BDecls [])) 
-           :[]))      
+stepJ' (Case v@(Var _) (alt:[]))      
   = return  $ 
     (Case v  
-     ((Alt s1   p (UnGuardedAlt e ) 
-       (BDecls [])) 
+     (  alt 
       :(Alt noLoc PWildCard   
         (UnGuardedAlt 
          (App (Var (UnQual (Ident "error"))) 

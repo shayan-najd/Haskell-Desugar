@@ -153,7 +153,7 @@ instance Desugar Exp where
   -- 3.12
   -- let with empty binding is removed
   desugar (Let (BDecls []) ex) = 
-    return ex 
+    desugar ex 
   desugar (Let binds ex) = 
     Let $$ binds ** ex 
 
